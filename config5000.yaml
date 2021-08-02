@@ -1,0 +1,5 @@
+upload_folder: "./upload_files_5000/"
+ip: "0.0.0.0"
+port: 5000
+use_ten_dims: False
+log_filename: "flask_5000.log"

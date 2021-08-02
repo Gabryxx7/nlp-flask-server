@@ -1,0 +1,1 @@
+put in this directory the embeddings that you can download from www.lajello.com/files/embeddings.zip
