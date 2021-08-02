@@ -22,9 +22,9 @@ The ML models can be called through these `POST` end-points:
 - `/getStats`: Calculates scores from all the available ML end-points for the text (or list of texts) in `text` and their ids in `text_id`
 - `/getStatsFile`: Same as above but for files. Need to specify a `txt_col_name`
 - `/tenDimensions`:  Calculates the TenDimensions [link to github repo](https://github.com/lajello/tendimensions) for the text (or list of texts) in `text` and their ids in `text_id`
-- `/complexity`:  Calculates Integrative Complexity (IC), from the paper "The Languge of Dialogue is Complex" from Alexander Robertson, Luca Maria Aielloand Daniele Quercia (https://arxiv.org/abs/1906.02057)[ARXIV link], made publicly available at (https://social-dynamics.net/ic/)[https://social-dynamics.net/ic/] and LIWC scores (from python packages `liwc` and `nltk`) for the text (or list of texts) in `text` and their ids in `text_id`
-- `/sentiment`:  Calculates the sentiment scores through FlairNLP (https://github.com/flairNLP/flair)[https://github.com/flairNLP/flair] for the text (or list of texts) in `text` and their ids in `text_id`
-- `/empathy`:  Calculates the Empathy as from the paper "The Language of Situational Empathy" from Ke Zhou, Luca Maria Aiello, Sanja Scepanovic, Daniele Quercia, Sara Konrath (https://dl.acm.org/doi/10.1145/3449087)[link] for the text (or list of texts) in `text` and their ids in `text_id`
+- `/complexity`:  Calculates Integrative Complexity (IC), from the paper "The Languge of Dialogue is Complex" from Alexander Robertson, Luca Maria Aielloand Daniele Quercia [ARXIV link](https://arxiv.org/abs/1906.02057/), made publicly available at [https://social-dynamics.net/ic/](https://social-dynamics.net/ic/) and LIWC scores (from python packages `liwc` and `nltk`) for the text (or list of texts) in `text` and their ids in `text_id`
+- `/sentiment`:  Calculates the sentiment scores through [FlairNLP](https://github.com/flairNLP/flair) for the text (or list of texts) in `text` and their ids in `text_id`
+- `/empathy`:  Calculates the Empathy as from the paper "The Language of Situational Empathy" from Ke Zhou, Luca Maria Aiello, Sanja Scepanovic, Daniele Quercia, Sara Konrath [link](https://dl.acm.org/doi/10.1145/3449087) for the text (or list of texts) in `text` and their ids in `text_id`
 
 At the moment the complexity and the empathy models are not publicly availabe.
 
