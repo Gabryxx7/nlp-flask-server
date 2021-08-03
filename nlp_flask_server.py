@@ -80,6 +80,7 @@ class Engine():
         self.dh = DiffieHellman()
                 
         #### Complexity Models ####
+        logger.info('Loading complexity models...')
         self.ic_model_file = 'complexity/models/Vocab+FullPOS_xbgoost.model'
         self.liwc_dictionary_file = 'complexity/data/LIWC2007_English100131.dic'
         self.model_complexity = ComplexityClassifier(self.ic_model_file, self.liwc_dictionary_file)
@@ -89,6 +90,7 @@ class Engine():
         
         # #### Ten Dimensions Models ####
         if load_ten_dims:
+            logger.info('Loading tenDims models...')
             self.models_dir = 'tendims/models/lstm_trained_models'
             self.embeddings_dir = 'tendims/embeddings'  # change urls to embeddings dir
             self.success_model_file = 'tendims/models/meeting_success/xgboost_10dims_success_prediction_model_v0.81.dat'
@@ -96,7 +98,7 @@ class Engine():
             self.model_tendim = TenDimensionsClassifier(models_dir=self.models_dir, embeddings_dir=self.embeddings_dir)
             self.success_predictor = SuccessPredictor(self.success_model_file) # Sucess prediction
             self.register_model(Engine.Models.TenDims, self.get_ten_dims)
-            app.logger.info('Tend dims models loaded')
+            logger.info('Tend dims models loaded')
         #####################
 
         # self.empathy_model_file = './empathy/models/Vocab+FullPOS+LIWCtrained_XGboost_model_99perc.pickle'
@@ -106,6 +108,7 @@ class Engine():
         #####################
 
         #### Sentiment Models ####
+        logger.info('Loading sentiment model...')
         self.model_sentim = SentimentClassifier()
         self.register_model(Engine.Models.Sentiment, self.model_sentim.get_sentiment)
         logger.info('Sentiment models loaded')

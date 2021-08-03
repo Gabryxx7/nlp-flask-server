@@ -85,6 +85,17 @@ It will automatically append the result to the dataframe, no need to specify the
 
 1. Check `analyse_data.py` and change it to your needs
 
+Analysing text is as easy as:
+
+```python
+from nlp_flask_client import NLPClient
+import pandas as pd
+
+client = NLPClient(IP, PORT)
+client.analyse_file(csv_filename, "msg_text") # Upload the csv file and get a new csv file back
+client.analyse_dataframe(pd.read_csv(csv_filename), 'msg_text', multi_threaded=True, multi_messages=True, threads_no=20, rows_per_call=20) # Analyse the dataframe row by row or in chunks
+```
+
 ## How to add new models
 This was the main point of this project. I wanted this to be easy to update and to add new pre-trained models to the server.
 The process is fairly simple:
