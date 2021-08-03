@@ -54,6 +54,12 @@ You can run this as a service:
 or
 `sudo nohup sudo gunicorn3 --preload -b 0.0.0.0:5000 wsgi:app &`
 
+I use preload since the models take a while to load and it often ends up timing out the main gunicorn worker.
+
+You can customise the nubmer of threads you want to use (not sure about workers as they create multiple processed and each one of them reloads the models...)
+
+`sudo nohup sudo gunicorn3 --preload -b 0.0.0.0:5000 --threads=10 wsgi:app &`
+
 If you then want to kill it from the background:
 call:
 `ps -ef | grep python`
