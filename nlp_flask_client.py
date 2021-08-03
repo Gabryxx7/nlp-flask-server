@@ -32,7 +32,7 @@ class NLPClient():
         self.keys = None
         self.stats_url = f"{self.base_url}/{stats_url}"
         self.file_stats_url = f"{self.base_url}/{file_stats_url}"
-        self.socket = self.init_socket(self.server_ip, self.server_port) if socket_port < 0 else self.init_socket(self.server_ip, self.socket_port)
+        self.socket = None if socket_port < 0 else self.init_socket(self.server_ip, self.socket_port)
         self.write_csv_headers = True
         self.output_df = None
         self.add_df_cols = True
