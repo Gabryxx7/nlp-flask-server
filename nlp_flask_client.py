@@ -118,7 +118,7 @@ class NLPClient():
         a = datetime.datetime.now()
         data = self.get_text_stats(text_list, no_encryption, index_list)
         b = datetime.datetime.now()    
-        print("Index Range: {} - {} / {}, Elapsed: {}, Time: {}, Response: {}".format(index_list[0], index_list[len(index_list)-1], total_rows, (b-a), utils.formatted_now(sepDate="/", sepTime=":"), response.status_code))
+        print(f"Index Range: {index_list[0]} - {index_list[len(index_list)-1]} / {total_rows}, Elapsed: {(b-a)}, Time: {utils.formatted_now(sepDate='/', sepTime=':', sep=' ')}")
         self.add_to_df(data, index_list)
         self.add_to_csv(data, row_list)
 
@@ -131,15 +131,16 @@ class NLPClient():
                 self.output_df.at[index, key] = value
 
     def add_to_csv(self, data_list, row_list):    
+        print(data_list[0])
         for data, row in zip(data_list, row_list):
             if self.write_csv_headers:
                 print(f"CSV File Headers Written")
-                self.csv_writer.writerow(list(data.keys())+list(self.output_df.columns.values))
+                self.csv_writer.writerow(list(data.keys())+self.output_df_cols)
                 self.write_csv_headers = False                
             csv_row = list(data.values())
-            csv_row.append(row["idx"])
             for val in row:
                 csv_row.append(val)
+            # csv_row.append(row["idx"])
             self.csv_writer.writerow(csv_row)
 
     def slice_df(self, data_df, txt_type_col=None, txt_type_filter=None, rows_amount=None):
@@ -178,7 +179,7 @@ class NLPClient():
         if not no_encryption:
             output_filename = self.encrypt_decrypt_file(output_filename, new_prefix="decrypted", decrypt=False)        
         end = datetime.datetime.now()
-        print(f"{utils.formatted_now(sepDate='/', sepTime=':')}\tFile Analysis Completed\t Execution Time: {end-start}")
+        print(f"{utils.formatted_now(sepDate='/', sepTime=':', sep=' ')}\tFile Analysis Completed\t Execution Time: {end-start}")
 
     def analyse_dataframe(self, data_df, text_col_name, multi_threaded=True, multi_messages=True, threads_no=100, rows_per_call=10, no_encryption=False):    
         start = datetime.datetime.now()
@@ -187,82 +188,79 @@ class NLPClient():
         prefix += "rq_" if self.socket is None else "sk_"
         rows_per_call = rows_per_call if multi_messages else 1
         threads_no = threads_no if multi_threaded else 1
-        output_file = open(prefix+"stats_result", 'w', newline='', encoding='utf-8')
+        output_file = open(prefix+"stats_result.csv", 'w', newline='', encoding='utf-8')
         self.output_df = data_df.copy()
         self.add_df_cols = True
         self.csv_writer = csv.writer(output_file, delimiter=',', quoting=csv.QUOTE_ALL)
         self.write_csv_headers = True       
-        data_df["idx"] = range(0,len(data_df))
+        self.output_df["idx"] = range(0,len(self.output_df))
+        self.output_df_cols = list(self.output_df.columns.values)
         
         total_rows = self.output_df.shape[0]
+        total_rows_processed = 0
 
-        print(f"{utils.formatted_now(sepDate='/', sepTime=':')}\tStarting Dataframe Analysis {'Multi' if multi_threaded else 'Single'}-Thread, {'Multi' if multi_messages else 'Single'}-Message, {'Requests' if socket is None else 'Socket'}, Rows per call [{rows_per_call}], Simultaneous calls [{calls_per_loop}]. Total Rows: {total_rows}")
+        print(f"{utils.formatted_now(sepDate='/', sepTime=':', sep=' ')}\tStarting Dataframe Analysis {'Multi' if multi_threaded else 'Single'}-Thread, {'Multi' if multi_messages else 'Single'}-Message, {'Requests' if socket is None else 'Socket'}, Rows per call [{rows_per_call}], Simultaneous calls [{threads_no}]. Total Rows: {total_rows}")
         res = []
         indeces = []
         rows = []
-        packed_rows = 0
-        calls_added = 0
         if multi_threaded:
             with concurrent.futures.ThreadPoolExecutor() as executor: # optimally defined number of threads
-                for index, row in data_df.iterrows():
+                for index, row in self.output_df.iterrows():
                     try:
                         if row["idx"] <= 0:
-                            packed_rows = 1
-                            print(f"Waiting for FIRST future to init data, packed rows: {packed_rows}, calls sent: {calls_added}, total rows {(calls_added*rows_per_call)+packed_rows+1}")
-                            res.append(executor.submit(self.get_text_stats, index, row, text_col_name, total_rows, no_encryption))
+                            processed_rows = 1
+                            total_rows_processed += processed_rows
+                            res.append(executor.submit(self.get_df_rows_stats, index, row, text_col_name, total_rows, no_encryption))
+                            print(f"Waiting for FIRST future to init data, rows per call: {1}, calls sent: {len(res)}, total rows sent {processed_rows}, total rows processed {total_rows_processed}/{total_rows}, Index: {row['idx']}")
                             concurrent.futures.wait(res)
-                            packed_rows = 0
                             res = []
                         else:
                             if multi_messages:
                                 indeces.append(index)
-                                rows.append(row)
-                                packed_rows += 1         
-                                if packed_rows >= rows_per_call:
-                                    res.append(executor.submit(self.get_text_stats, indeces, rows, text_col_name, total_rows, no_encryption))
-                                    # print(f"Call {calls_added}, Packed {indeces}, Total: {len(indeces)}")
+                                rows.append(row)     
+                                if len(rows) >= rows_per_call:
+                                    res.append(executor.submit(self.get_df_rows_stats, indeces, rows, text_col_name, total_rows, no_encryption))
+                                    # print(f"Call {len(res)}, Packed {indeces}, Total: {len(indeces)}")
                                     indeces = []
                                     rows = []
-                                    calls_added += 1
-                                    packed_rows = 0
                             else:
-                                res.append(executor.submit(self.get_text_stats, index, row, text_col_name, total_rows, no_encryption))
-                                calls_added += 1
+                                res.append(executor.submit(self.get_df_rows_stats, index, row, text_col_name, total_rows, no_encryption))
 
-                            if calls_added >= threads_no:
-                                print(f"Waiting for futures, packed rows: {packed_rows}, calls sent: {calls_added}, total rows {(calls_added*rows_per_call)+packed_rows+1}")
+                            if len(res) >= threads_no:
+                                processed_rows = (len(res)*rows_per_call)
+                                total_rows_processed += processed_rows
+                                print(f"Waiting for futures, rows per call: {rows_per_call}, calls sent: {len(res)}, total rows sent {processed_rows}, total rows processed {total_rows_processed}/{total_rows}, Index: {row['idx']}")
                                 concurrent.futures.wait(res)
-                                res = []                    
-                                calls_added = 0
+                                res = []
                     except Exception as e:
                         print(f"Error processing row {index}: {e}")
                 if multi_messages and len(indeces) > 0:
-                    res.append(executor.submit(self.get_text_stats, indeces, rows, text_col_name, total_rows, no_encryption))
-                    print(f"Waiting for last futures, packed rows: {packed_rows}, calls sent: {calls_added}, total rows {(calls_added*rows_per_call)+packed_rows+1}")
+                    processed_rows = (len(res)*rows_per_call)
+                    total_rows_processed += processed_rows
+                    res.append(executor.submit(self.get_df_rows_stats, indeces, rows, text_col_name, total_rows, no_encryption))
+                    print(f"Waiting for last futures, rows per call: {rows_per_call}, calls sent: {len(res)}, total rows sent {processed_rows}, total rows processed {total_rows_processed}/{total_rows}")
                     concurrent.futures.wait(res)
                     res = []
         else:
-            for index, row in data_df.iterrows():
+            for index, row in self.output_df.iterrows():
                 try:
                     if multi_messages:
                         indeces.append(index)
-                        rows.append(row)
-                        packed_rows += 1                        
-                        if packed_rows >= rows_per_call:
-                            self.get_text_stats(indeces, rows, text_col_name, total_rows, no_encryption)
+                        rows.append(row)                      
+                        if len(rows) >= rows_per_call:
+                            self.get_df_rows_stats(indeces, rows, text_col_name, total_rows, no_encryption)
                             indeces = []
                             rows = []
-                            packed_rows = 0
                     else:
-                        self.get_text_stats(index, row, text_col_name, total_rows, no_encryption)
+                        self.get_df_rows_stats(index, row, text_col_name, total_rows, no_encryption)
                 except Exception as e:
                     print(f"Error processing row {index}: {e}")
             if multi_messages and len(indeces) > 0:
-                self.get_text_stats(indeces, rows, text_col_name, total_rows, no_encryption)
+                self.get_df_rows_stats(indeces, rows, text_col_name, total_rows, no_encryption)
 
         # print(result_df)
         output_file.close()
         end = datetime.datetime.now()
-        print(f"{utils.formatted_now(sepDate='/', sepTime=':')}\tAnalysis Completed {'Multi' if multi_threaded else 'Single'}-Thread, {'Multi' if multi_messages else 'Single'}-Message, {'Requests' if socket is None else 'Socket'}, Rows per call [{rows_per_call}], Simultaneous calls [{calls_per_loop}]. Total Rows: {total_rows}\t Execution Time: {end-start}")
+        print(f"{utils.formatted_now(sepDate='/', sepTime=':', sep=' ')}\tAnalysis Completed {'Multi' if multi_threaded else 'Single'}-Thread, {'Multi' if multi_messages else 'Single'}-Message, {'Requests' if socket is None else 'Socket'}, Rows per call [{rows_per_call}], Simultaneous calls [{threads_no}]. Total Rows: {total_rows}\t Execution Time: {end-start}")
         return self.output_df
 

@@ -84,7 +84,7 @@ class Engine():
         self.ic_model_file = 'complexity/models/Vocab+FullPOS_xbgoost.model'
         self.liwc_dictionary_file = 'complexity/data/LIWC2007_English100131.dic'
         self.model_complexity = ComplexityClassifier(self.ic_model_file, self.liwc_dictionary_file)
-        self.register_model(Engine.Models.Complexity, self.model_complexity.get_complexity)
+        self.register_model(Engine.Models.Complexity, self.get_complexity)
         logger.info('Complexity models loaded')
         #####################
         
@@ -110,7 +110,7 @@ class Engine():
         #### Sentiment Models ####
         logger.info('Loading sentiment model...')
         self.model_sentim = SentimentClassifier()
-        self.register_model(Engine.Models.Sentiment, self.model_sentim.get_sentiment)
+        self.register_model(Engine.Models.Sentiment, self.get_sentiment)
         logger.info('Sentiment models loaded')
         #####################    
     
@@ -164,11 +164,11 @@ class Engine():
                     print(f"Error removing file {filename}")   
                 filename = temp_filename 
                 if decrypt:
-                    logger.info(f"\n\nReceived encrypted File, decrypted using {ip_address} key {client_shared_key}")
+                    logger.debug(f"\n\nReceived encrypted File, decrypted using {ip_address} key {client_shared_key}")
                 else:
-                    logger.info(f"\n\nFile Encrypted using {ip_address} key {client_shared_key}")
+                    logger.debug(f"\n\nFile Encrypted using {ip_address} key {client_shared_key}")
             else:
-                logger.info(f"\n\n: Received non encrypted File from {ip_address}")
+                logger.debug(f"\n\n: Received non encrypted File from {ip_address}")
             return 200, filename
         except Exception as e:
             error_text = f"\n\n Something went wrong while decrypting/encrypting the file {filename}: {e}"
@@ -183,9 +183,9 @@ class Engine():
             if engine.using_encryption:
                 client_shared_key = engine.ip_keys_dict[ip_address]["client"]["shared_key"] 
                 text = decrypt_data(text, client_shared_key)
-                logger.info(f"\n\n{method}: Received encrypted Text, decrypted using {ip_address} key {client_shared_key}: {text}")
+                logger.debug(f"\n\n{method}: Received encrypted Text, decrypted using {ip_address} key {client_shared_key}: {text}")
             else:
-                logger.info(f"\n\n{method}: Received plain Text from {ip_address}: {text}")
+                logger.debug(f"\n\n{method}: Received plain Text from {ip_address}: {text}")
             return 200, text
         except Exception as e:
             error_text = f"\n\n{method}: Something went wrong while getting the request's text {e}"
@@ -203,6 +203,12 @@ class Engine():
             tendim_scores = {'conflict': 0, 'fun': 0, 'identity': 0, 'knowledge': 0, 'power': 0, 'romance': 0, 'similarity': 0, 'status': 0, 'support': 0, 'trust': 0}
             tendim_scores['success'] = 0
         return tendim_scores
+        
+    def get_sentiment(self, text, logger):  
+        return self.model_sentim.get_sentiment(text)
+    
+    def get_complexity(self, text, logger):  
+        return self.model_complexity.get_complexity(text)
     
     def get_empathy(self, text, logger):
         avg_empathy, avg_ic, scored_text_list = engine.empathy_scorer.empathyIC_from_texts(text)
@@ -223,7 +229,7 @@ class Engine():
 
     def call_model_from_text(self, ip_address, text, no_encryption, method, logger):
         try:
-            logger.info(f"Text Getting decrypted text")     
+            logger.debug(f"Text Getting decrypted text")     
             if not isinstance(text, list):
                 text = [text]      
 
@@ -244,8 +250,7 @@ class Engine():
             return {"message": f"Internal Server Error in Text {method}", "error_info":str(e), "status": 500}, 500
 
     def call_model_from_request(self, flask_request, method, logger):
-        try:
-            logger.info(f"Request Getting decrypted text")       
+        try:   
             text = flask_request.form.getlist('text')
             if len(text) <= 0:
                 text = [flask_request.form.get('text')]
@@ -259,6 +264,7 @@ class Engine():
             if len(text_id) <= 0:
                 text_id = [flask_request.form.get('id')]
 
+            logger.info(f"Text stats request from {flask_request.remote_addr}. Encrypted: {not no_encryption}. List len: {len(text)}") 
             if retCode == 200:
                 ret = engine.calculate_stats(text, text_id, self.get_model_methods(method), logger)
                 return ret, retCode
@@ -277,6 +283,7 @@ parser = ArgumentParser()
 parser.add_argument('-c', nargs='?', const="config.yaml", type=str)
 args = parser.parse_args()
 config_filename = args.c
+# config_filename = "config5000.yaml"
 global config
 try:
     config = yaml.safe_load(open(config_filename))
@@ -336,7 +343,7 @@ def request_shared_key():
 
 @app.route("/getStats", methods=['POST'])
 def getStats():
-    ret_data, code = engine.call_model_from_request(request, Engine.Models.Complexity, app.logger)
+    ret_data, code = engine.call_model_from_request(request, Engine.Models.All, app.logger)
     return jsonify(ret_data), code
 
 @app.route("/getStatsFile", methods=['POST'])
@@ -356,7 +363,7 @@ def getStatsFile():
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         if not no_encryption:
             code, filename = engine.encrypt_decrypt_file(request.remote_addr, UPLOAD_FOLDER, filename, app.logger, new_prefix="decrypted", decrypt=True)
-
+    
     txt_col = request.form["txt_col_name"]    
         
     amount = int(request.form.get("amount", 0))   
@@ -367,11 +374,12 @@ def getStatsFile():
         print(f"Error removing file {filename}")
     # remove file
     data_df["idx"] = range(0,len(data_df))
+    app.logger.info(f"File stats request from {request.remote_addr}. Encrypted: {not no_encryption}. Row col: {txt_col}, limit: {amount}, rows: {len(data_df)}") 
     output_filename = os.path.splitext(filename)[0]
     output_filename = UPLOAD_FOLDER+output_filename+"_pandas_res.csv"
     initialized = False
     for index, row in data_df.iterrows():
-        ret_data, code = engine.call_model_from_text(request.remote_addr, str(row[txt_col]), True, "All", app.logger)
+        ret_data, code = engine.call_model_from_text(request.remote_addr, str(row[txt_col]), True, Engine.Models.All, app.logger)
         if code == 200 :
             for key, value in ret_data[0].items():
                 if not initialized:
@@ -393,22 +401,22 @@ def getStatsFile():
 
 @app.route("/tenDimensions", methods=['POST'])
 def tenDimensions():
-    ret_data, code = engine.call_model_from_request(request, "TenDims", app.logger)
+    ret_data, code = engine.call_model_from_request(request, Engine.Models.TenDims, app.logger)
     return jsonify(ret_data), code
             
 @app.route("/complexity", methods=['POST'])
 def complexity():
-    ret_data, code = engine.call_model_from_request(request, "Complexity", app.logger)
+    ret_data, code = engine.call_model_from_request(request, Engine.Models.Complexity, app.logger)
     return jsonify(ret_data), code
 
 @app.route("/sentiment", methods=['POST'])
 def sentiment():
-    ret_data, code = engine.call_model_from_request(request, "Sentiment", app.logger)
+    ret_data, code = engine.call_model_from_request(request, Engine.Models.Sentiment, app.logger)
     return jsonify(ret_data), code
         
 @app.route("/empathy", methods=['GET'])
 def empathy():
-    ret_data, code = engine.call_model_from_request(request, "Empathy", app.logger)
+    ret_data, code = engine.call_model_from_request(request, Engine.Models.Sentiment, app.logger)
     return jsonify(ret_data), code
 
 @socketio.on('json')
