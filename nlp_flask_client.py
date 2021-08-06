@@ -158,7 +158,7 @@ class NLPClient():
         file_handle.close()
         if decrypt:
             new_data = decrypt_file(file_data, self.keys["shared_key"])
-        if decrypt:
+        else:
             new_data = encrypt_file(file_data, self.keys["shared_key"])
         with open(new_file_name, 'wb') as new_f:
             new_f.write(new_data) 
